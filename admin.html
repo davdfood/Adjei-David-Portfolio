@@ -48,7 +48,7 @@ textarea{min-height:90px;resize:vertical}.row{display:grid;grid-template-columns
       <div class="row"><div><label>Media URL (image, YouTube/Vimeo, or .mp4)</label><input id="murl" placeholder="https://"></div>
         <div><label>or upload a file (image or video)</label><input type="file" id="file" accept="image/*,video/*"></div></div>
       <label>Live project / case study URL</label><input id="lurl" placeholder="https://">
-      <div style="margin-top:20px"><button class="p" type="submit">Save</button> <button type="button" id="reset">Clear</button></div>
+      <div style="margin-top:20px"><button class="p" type="submit">Save</button> <button type="button" id="clr">Clear</button></div>
     </form>
     <h3 style="margin:40px 0 8px">Published work</h3><div id="list"></div>
   </div>
@@ -107,7 +107,7 @@ $('#wf').onsubmit=async e=>{ e.preventDefault();
     if($('#wid').value) w.id=$('#wid').value;
     await Store.saveWork(w); clearForm(); await list(); say('Saved');
   }catch(err){ say(err.message); } };
-$('#reset').onclick=clearForm;
+$("#clr").onclick=clearForm;
 $('#list').onclick=async e=>{
   const ed=e.target.dataset.e, del=e.target.dataset.d;
   if(ed){ const w=WORKS.find(x=>String(x.id)===ed); $('#wid').value=w.id; $('#cat').value=w.category; $('#ttl').value=w.title;
