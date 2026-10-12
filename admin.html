@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin | Adjei David</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--red:#DC143C;--bg:#0c0c0c;--fg:#FAFAFA;--mut:#9a9a9a;--line:#262626}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--fg);font:15px/1.6 Inter,sans-serif;padding:24px}
+h1,h2,h3{font-family:Archivo,sans-serif}.box{max-width:880px;margin:auto}
+.top{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:1px solid var(--line);margin-bottom:24px;gap:12px;flex-wrap:wrap}
+.tabs{display:flex;gap:8px;margin-bottom:24px}
+button,.b{font:600 14px Archivo;cursor:pointer;border:1px solid var(--line);background:none;color:var(--fg);padding:10px 20px}
+button.on,button.p{background:var(--red);border-color:var(--red)}button.d{color:#ff6b86}
+label{display:block;color:var(--mut);font-size:13px;margin:16px 0 6px}
+input,textarea,select{width:100%;background:#151515;border:1px solid var(--line);color:var(--fg);padding:12px;font:inherit}
+input:focus,textarea:focus,select:focus{outline:0;border-color:var(--red)}
+textarea{min-height:90px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.item{display:flex;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.item img{width:64px;height:48px;object-fit:cover;background:#222}.item div{flex:1;min-width:0}.item small{color:var(--red);text-transform:uppercase;font:600 11px Archivo;letter-spacing:.12em}
+.note{border-left:3px solid var(--red);padding:10px 14px;background:#151515;margin-bottom:20px;color:var(--mut);font-size:13px}
+#msg{position:fixed;bottom:20px;right:20px;background:var(--red);padding:12px 20px;display:none;max-width:80vw}
+.hide{display:none}@media(max-width:640px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="box">
+<div id="login" class="hide" style="max-width:380px;margin:12vh auto">
+  <h1>Admin login</h1>
+  <div id="emailRow"><label>Email</label><input id="em" type="email" autocomplete="username"></div>
+  <label>Password</label><input id="pw" type="password" autocomplete="current-password">
+  <button class="p" id="go" style="margin-top:20px;width:100%">Sign in</button>
+</div>
+
+<div id="app" class="hide">
+  <div class="top"><h1>Dashboard</h1><div><a class="b" href="index.html" target="_blank">View site</a> <button id="out">Log out</button></div></div>
+  <div class="note" id="modeNote"></div>
+  <div class="tabs"><button class="on" data-t="work">Portfolio</button><button data-t="text">Site content</button></div>
+
+  <div id="t-work">
+    <form id="wf">
+      <h3 id="wtitle">Add work</h3><input type="hidden" id="wid">
+      <div class="row"><div><label>Category</label>
+        <select id="cat"><option value="image">Image (Graphic Design)</option><option value="video">Video (Video Editing)</option><option value="link">Link / Case study (Digital Marketing)</option></select></div>
+        <div><label>Title</label><input id="ttl" required></div></div>
+      <label>Description</label><textarea id="desc"></textarea>
+      <div class="row"><div><label>Media URL (image, YouTube/Vimeo, or .mp4)</label><input id="murl" placeholder="https://"></div>
+        <div><label>or upload a file (image or video)</label><input type="file" id="file" accept="image/*,video/*"></div></div>
+      <label>Live project / case study URL</label><input id="lurl" placeholder="https://">
+      <div style="margin-top:20px"><button class="p" type="submit">Save</button> <button type="button" id="reset">Clear</button></div>
+    </form>
+    <h3 style="margin:40px 0 8px">Published work</h3><div id="list"></div>
+  </div>
+
+  <form id="tf" class="hide">
+    <div id="fields"></div><button class="p" style="margin-top:24px">Save content</button>
+  </form>
+</div>
+</div>
+<div id="msg"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const FIELDS=[['brand','Brand name (nav)'],['hero_kicker','Hero small label'],['hero_title','Hero headline','t'],['hero_sub','Hero sub text','t'],
+ ['about_title','About heading'],['about_body','About bio','t'],['skills','Skills (comma separated)'],
+ ['email','Email'],['whatsapp_display','WhatsApp (display, e.g. 0530179643)'],['whatsapp_intl','WhatsApp (international, digits only: 233530179643)'],
+ ['instagram','Instagram URL'],['tiktok','TikTok URL'],['facebook','Facebook URL']];
+const say=(t)=>{const m=$('#msg');m.textContent=t;m.style.display='block';setTimeout(()=>m.style.display='none',3000)};
+let WORKS=[];
+
+async function boot(){
+  if(await Store.authed()){ $('#login').classList.add('hide'); $('#app').classList.remove('hide'); load(); }
+  else{ $('#login').classList.remove('hide'); $('#app').classList.add('hide'); $('#emailRow').classList.toggle('hide',Store.mode==='local'); }
+}
+async function load(){
+  $('#modeNote').textContent = Store.mode==='local'
+   ? 'Local demo mode: changes only appear in this browser. Add Supabase keys in app.js to publish for all visitors.'
+   : 'Connected to Supabase: changes are live for all visitors.';
+  const c=await Store.content();
+  $('#fields').innerHTML=FIELDS.map(([k,l,t])=>`<label>${l}</label>${t?`<textarea data-k="${k}">${esc(c[k])}</textarea>`:`<input data-k="${k}" value="${esc(c[k])}">`}`).join('');
+  list();
+}
+async function list(){
+  WORKS=await Store.works();
+  $('#list').innerHTML=WORKS.length?WORKS.map(w=>`<div class="item">
+    ${w.category==='image'&&safeUrl(w.media_url)?`<img src="${esc(w.media_url)}" alt="">`:'<img alt="">'}
+    <div><small>${w.category}</small><br>${esc(w.title)}</div>
+    <button data-e="${esc(w.id)}">Edit</button><button class="d" data-d="${esc(w.id)}">Delete</button></div>`).join(''):'<p style="color:var(--mut)">Nothing yet.</p>';
+}
+function clearForm(){ $('#wf').reset(); $('#wid').value=''; $('#wtitle').textContent='Add work'; }
+
+$('#go').onclick=async()=>{ try{ await Store.login($('#em').value,$('#pw').value); boot(); }catch(e){ say(e.message); } };
+$('#pw').onkeydown=e=>{ if(e.key==='Enter') $('#go').click(); };
+$('#out').onclick=async()=>{ await Store.logout(); boot(); };
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  $('#t-work').classList.toggle('hide',b.dataset.t!=='work'); $('#tf').classList.toggle('hide',b.dataset.t!=='text'); });
+
+$('#wf').onsubmit=async e=>{ e.preventDefault();
+  try{
+    let media=$('#murl').value.trim(); const f=$('#file').files[0];
+    if(f) media=await Store.upload(f);
+    const w={category:$('#cat').value,title:$('#ttl').value.trim(),description:$('#desc').value.trim(),media_url:media,link_url:$('#lurl').value.trim()};
+    if($('#wid').value) w.id=$('#wid').value;
+    await Store.saveWork(w); clearForm(); await list(); say('Saved');
+  }catch(err){ say(err.message); } };
+$('#reset').onclick=clearForm;
+$('#list').onclick=async e=>{
+  const ed=e.target.dataset.e, del=e.target.dataset.d;
+  if(ed){ const w=WORKS.find(x=>String(x.id)===ed); $('#wid').value=w.id; $('#cat').value=w.category; $('#ttl').value=w.title;
+    $('#desc').value=w.description||''; $('#murl').value=w.media_url&&!w.media_url.startsWith('data:')?w.media_url:''; $('#lurl').value=w.link_url||'';
+    $('#wtitle').textContent='Edit work'; scrollTo({top:0,behavior:'smooth'}); }
+  if(del&&confirm('Delete this item?')){ try{ await Store.delWork(del); await list(); say('Deleted'); }catch(err){ say(err.message); } } };
+$('#tf').onsubmit=async e=>{ e.preventDefault();
+  const o={}; document.querySelectorAll('[data-k]').forEach(i=>o[i.dataset.k]=i.value.trim());
+  try{ await Store.setContent(o); say('Content saved'); }catch(err){ say(err.message); } };
+boot();
+</script>
+</body>
+</html>
